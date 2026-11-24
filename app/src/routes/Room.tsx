@@ -3,12 +3,14 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useLocalStorageNickname } from '../hooks/useLocalStorageNickname';
 import { useChatSocket } from '../hooks/useChatSocket';
 import { useVisualViewport } from '../hooks/useVisualViewport';
+import { useBlockedUsers } from '../hooks/useBlockedUsers';
 import { Message } from '../types';
 import MessageList from '../components/MessageList';
 import Composer from '../components/Composer';
 import PresenceBar from '../components/PresenceBar';
 import ConnectionStatus from '../components/ConnectionStatus';
 import RoomSwitcher from '../components/RoomSwitcher';
+import BlockPanel from '../components/BlockPanel';
 import { sanitizeText } from '../lib/escape';
 import Toast from '../components/Toast';
 import '../styles/Room.css';
@@ -30,9 +32,13 @@ export default function Room() {
   const [newMessagesCount, setNewMessagesCount] = useState<number>(0);
   const [isAtBottom, setIsAtBottom] = useState<boolean>(true);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
+  const [showBlockPanel, setShowBlockPanel] = useState<boolean>(false);
   const messageListRef = useRef<HTMLDivElement>(null);
   const messagesRef = useRef<Message[]>([]);
   const prevScrollHeightRef = useRef<number>(0);
+
+  // Blocked users management
+  const { blockedUsers, blockUser, unblockUser, isBlocked, getBlockedUsersArray } = useBlockedUsers(roomName || '');
 
   // Keep messages in sync with ref for scroll calculations
   useEffect(() => {
@@ -49,25 +55,34 @@ export default function Room() {
     }, 3000);
   }, []);
 
+  // Filter blocked messages
+  const filteredMessages = messages.filter((msg) => !isBlocked(msg.nickname));
+
   const { sendMessage, sendTyping, connectionStatus, reconnect } = useChatSocket({
     roomName: roomName || '',
     nickname,
     onMessage: (msg) => {
-      setMessages((prev) => {
-        // Duplicate message protection
-        if (prev.some((m) => m.id === msg.id)) return prev;
-        return [...prev, msg];
-      });
+      // Don't show blocked messages
+      if (!isBlocked(msg.nickname)) {
+        setMessages((prev) => {
+          // Duplicate message protection
+          if (prev.some((m) => m.id === msg.id)) return prev;
+          return [...prev, msg];
+        });
+      }
     },
     onPresence: (nicknames) => {
       setPresence(nicknames);
     },
     onTyping: (nickname) => {
-      setTypingUsers((prev) => {
-        const newSet = new Set(prev);
-        newSet.add(nickname);
-        return newSet;
-      });
+      // Don't show typing for blocked users
+      if (!isBlocked(nickname)) {
+        setTypingUsers((prev) => {
+          const newSet = new Set(prev);
+          newSet.add(nickname);
+          return newSet;
+        });
+      }
     },
     onHistory: (historyMessages, historyPresence) => {
       setMessages(historyMessages);
@@ -81,6 +96,10 @@ export default function Room() {
         addToast('Invalid message. Please check your input.', 'error');
       } else if (code === 'NICKNAME_TAKEN') {
         addToast('Nickname is already taken. Please choose another.', 'error');
+      } else if (code === 'BLOCKED') {
+        addToast('You have been blocked from this room.', 'error');
+      } else if (code === 'FILTERED') {
+        addToast('Your message was filtered. Please follow the rules.', 'error');
       } else {
         addToast(`Error: ${code}`, 'error');
       }
@@ -177,6 +196,42 @@ export default function Room() {
     prevScrollHeightRef.current = currentHeight;
   }, [messages, isAtBottom]);
 
+  // Handle block/unblock
+  const handleBlockUser = useCallback((nickname: string) => {
+    blockUser(nickname);
+    addToast(`Blocked ${nickname}`, 'info');
+  }, [blockUser, addToast]);
+
+  const handleUnblockUser = useCallback((nickname: string) => {
+    unblockUser(nickname);
+    addToast(`Unblocked ${nickname}`, 'info');
+  }, [unblockUser, addToast]);
+
+  // Handle report
+  const handleReport = useCallback((messageId: string, reportedNickname: string) => {
+    // Send report to server
+    if (sendMessage) {
+      // Create a report message (will be handled by server)
+      const reportMsg = {
+        type: 'report',
+        messageId,
+        reportedNickname,
+        reporter: nickname,
+      };
+      
+      // For now, just show toast - server will handle in next step
+      addToast(`Reported ${reportedNickname}'s message`, 'info');
+      
+      // TODO: Send via WebSocket when protocol is updated
+      console.log('Report:', reportMsg);
+    }
+  }, [nickname, addToast]);
+
+  // Toggle block panel
+  const toggleBlockPanel = useCallback(() => {
+    setShowBlockPanel((prev) => !prev);
+  }, []);
+
   if (!roomName || !nickname) {
     return null;
   }
@@ -200,10 +255,12 @@ export default function Room() {
       <div className="room-content">
         <MessageList
           ref={messageListRef}
-          messages={messages}
+          messages={filteredMessages}
           nickname={nickname}
           onScroll={handleScroll}
           typingUsers={typingUsers}
+          onBlock={handleBlockUser}
+          onReport={handleReport}
         />
         
         {newMessagesCount > 0 && (
@@ -214,7 +271,19 @@ export default function Room() {
       </div>
 
       <div className="room-footer">
-        <ConnectionStatus status={connectionStatus} onReconnect={reconnect} />
+        <div className="footer-row">
+          <ConnectionStatus status={connectionStatus} onReconnect={reconnect} />
+          <button 
+            className="block-panel-toggle" 
+            onClick={toggleBlockPanel}
+            title="Blocked Users"
+          >
+            {getBlockedUsersArray().length > 0 && (
+              <span className="block-count">{getBlockedUsersArray().length}</span>
+            )}
+            🚫
+          </button>
+        </div>
         <Composer
           onSend={handleSendMessage}
           onTyping={handleTyping}
@@ -223,6 +292,15 @@ export default function Room() {
         />
         <RoomSwitcher currentRoom={roomName} />
       </div>
+
+      {/* Block Panel */}
+      {showBlockPanel && (
+        <BlockPanel
+          blockedUsers={getBlockedUsersArray()}
+          onUnblock={handleUnblockUser}
+          onClose={() => setShowBlockPanel(false)}
+        />
+      )}
     </div>
   );
 }

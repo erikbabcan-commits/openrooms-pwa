@@ -10,13 +10,15 @@ interface MessageListProps {
   nickname: string;
   onScroll?: (isAtBottom: boolean) => void;
   typingUsers: Set<string>;
+  onBlock?: (nickname: string) => void;
+  onReport?: (messageId: string, reportedNickname: string) => void;
 }
 
 // Virtualization threshold
 const VIRTUALIZATION_THRESHOLD = 80;
 
 export default forwardRef<HTMLDivElement, MessageListProps>(function MessageList(
-  { messages, nickname, onScroll, typingUsers },
+  { messages, nickname, onScroll, typingUsers, onBlock, onReport },
   ref
 ) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -218,6 +220,8 @@ export default forwardRef<HTMLDivElement, MessageListProps>(function MessageList
               isLastInGroup={useVirtualization ? 
                 (visibleRange.start + index) === groupedMessages.length - 1 : 
                 index === groupedMessages.length - 1}
+              onBlock={onBlock}
+              onReport={onReport}
             />
           </div>
         ))}
