@@ -1,0 +1,6 @@
+# Wrangler
+.wrangler/
+.dev.vars
+
+# Build outputs
+.dist/

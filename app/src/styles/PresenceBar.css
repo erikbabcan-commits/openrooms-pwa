@@ -1,0 +1,32 @@
+.presence-bar {
+  padding: 0.75rem 1rem;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border);
+}
+
+.presence-info {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  font-size: 0.875rem;
+}
+
+.presence-count {
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.presence-nicknames {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  color: var(--text-muted);
+}
+
+.presence-nickname {
+  color: var(--accent);
+}
+
+.presence-more {
+  color: var(--text-muted);
+}

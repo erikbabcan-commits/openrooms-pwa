@@ -1,0 +1,49 @@
+.room {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--bg-primary);
+}
+
+.room-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  overflow: hidden;
+}
+
+.new-messages-badge {
+  position: fixed;
+  bottom: calc(var(--kb-h) + 120px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--accent);
+  color: white;
+  padding: 0.75rem 1.5rem;
+  border-radius: 20px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  z-index: 100;
+  transition: all 0.2s ease;
+}
+
+.new-messages-badge:hover {
+  background: var(--accent-hover);
+  transform: translateX(-50%) translateY(-2px);
+}
+
+.new-messages-badge:active {
+  transform: translateX(-50%) translateY(0);
+}
+
+.room-footer {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 1rem;
+  padding-bottom: max(1rem, calc(var(--kb-h) + 1rem));
+  background: var(--bg-secondary);
+}

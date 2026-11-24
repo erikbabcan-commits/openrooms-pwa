@@ -1,0 +1,59 @@
+.connection-status {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  background: var(--bg-tertiary);
+  border-radius: 8px;
+  font-size: 0.875rem;
+  align-self: center;
+}
+
+.connection-status.RECONNECTING {
+  background: rgba(255, 204, 0, 0.2);
+  border: 1px solid rgba(255, 204, 0, 0.5);
+}
+
+.connection-status.OFFLINE {
+  background: rgba(255, 51, 51, 0.2);
+  border: 1px solid rgba(255, 51, 51, 0.5);
+}
+
+.status-indicator {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--text-muted);
+}
+
+.connection-status.RECONNECTING .status-indicator {
+  background: #ffcc00;
+  animation: pulse 1s ease-in-out infinite;
+}
+
+.connection-status.OFFLINE .status-indicator {
+  background: var(--error);
+}
+
+.status-text {
+  color: var(--text-secondary);
+}
+
+.connection-status.OFFLINE .status-text {
+  color: var(--error);
+}
+
+.reconnect-button {
+  background: var(--accent);
+  color: white;
+  padding: 0.25rem 0.75rem;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.reconnect-button:hover {
+  background: var(--accent-hover);
+}

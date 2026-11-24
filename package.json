@@ -1,0 +1,25 @@
+{
+  "name": "openrooms-pwa",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Simple global chat with public rooms - PWA",
+  "workspaces": [
+    "app",
+    "server"
+  ],
+  "scripts": {
+    "dev": "pnpm --filter app dev",
+    "build": "pnpm --filter app build",
+    "preview": "pnpm --filter app preview",
+    "deploy:frontend": "pnpm --filter app build && npx wrangler pages deploy app/dist",
+    "deploy:backend": "cd server && npx wrangler deploy",
+    "deploy": "pnpm deploy:frontend && pnpm deploy:backend"
+  },
+  "devDependencies": {
+    "pnpm": "^9.0.0"
+  },
+  "packageManager": "pnpm@9.0.0",
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}
