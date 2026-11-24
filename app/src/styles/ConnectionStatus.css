@@ -3,20 +3,23 @@
   align-items: center;
   gap: 0.5rem;
   padding: 0.5rem 1rem;
-  background: var(--bg-tertiary);
+  background: rgba(22, 33, 62, 0.6);
   border-radius: 8px;
-  font-size: 0.875rem;
+  font-size: 0.8rem;
   align-self: center;
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  border: 1px solid var(--border);
 }
 
 .connection-status.RECONNECTING {
-  background: rgba(255, 204, 0, 0.2);
-  border: 1px solid rgba(255, 204, 0, 0.5);
+  background: rgba(255, 204, 0, 0.15);
+  border-color: rgba(255, 204, 0, 0.3);
 }
 
 .connection-status.OFFLINE {
-  background: rgba(255, 51, 51, 0.2);
-  border: 1px solid rgba(255, 51, 51, 0.5);
+  background: rgba(255, 51, 51, 0.15);
+  border-color: rgba(255, 51, 51, 0.3);
 }
 
 .status-indicator {
@@ -24,11 +27,11 @@
   height: 8px;
   border-radius: 50%;
   background: var(--text-muted);
+  animation: pulse 1.5s ease-in-out infinite;
 }
 
 .connection-status.RECONNECTING .status-indicator {
   background: #ffcc00;
-  animation: pulse 1s ease-in-out infinite;
 }
 
 .connection-status.OFFLINE .status-indicator {
@@ -37,6 +40,7 @@
 
 .status-text {
   color: var(--text-secondary);
+  font-size: 0.8rem;
 }
 
 .connection-status.OFFLINE .status-text {
@@ -44,16 +48,33 @@
 }
 
 .reconnect-button {
-  background: var(--accent);
-  color: white;
+  background: rgba(233, 69, 96, 0.2);
+  color: var(--accent);
   padding: 0.25rem 0.75rem;
   border-radius: 4px;
   font-size: 0.75rem;
   font-weight: 600;
   cursor: pointer;
-  transition: background-color 0.2s ease;
+  transition: all 0.15s ease;
+  border: 1px solid transparent;
 }
 
 .reconnect-button:hover {
-  background: var(--accent-hover);
+  background: rgba(233, 69, 96, 0.4);
+  border-color: var(--accent);
+}
+
+.reconnect-button:active {
+  transform: scale(0.95);
+}
+
+@keyframes pulse {
+  0%, 100% { 
+    opacity: 1; 
+    transform: scale(1);
+  }
+  50% { 
+    opacity: 0.6; 
+    transform: scale(1.1);
+  }
 }

@@ -18,25 +18,30 @@
   bottom: calc(var(--kb-h) + 120px);
   left: 50%;
   transform: translateX(-50%);
-  background: var(--accent);
+  background: rgba(233, 69, 96, 0.95);
   color: white;
   padding: 0.75rem 1.5rem;
-  border-radius: 20px;
+  border-radius: 24px;
   font-size: 0.875rem;
   font-weight: 600;
   cursor: pointer;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 8px 24px rgba(233, 69, 96, 0.4);
   z-index: 100;
   transition: all 0.2s ease;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(233, 69, 96, 0.3);
 }
 
 .new-messages-badge:hover {
   background: var(--accent-hover);
   transform: translateX(-50%) translateY(-2px);
+  box-shadow: 0 12px 32px rgba(233, 69, 96, 0.5);
 }
 
 .new-messages-badge:active {
   transform: translateX(-50%) translateY(0);
+  filter: brightness(0.9);
 }
 
 .room-footer {
@@ -45,5 +50,13 @@
   gap: 0.5rem;
   padding: 1rem;
   padding-bottom: max(1rem, calc(var(--kb-h) + 1rem));
-  background: var(--bg-secondary);
+  background: rgba(22, 33, 62, 0.8);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border-top: 1px solid var(--border);
+}
+
+/* Toast container positioning */
+.toast-container {
+  z-index: 2000;
 }
