@@ -22,15 +22,24 @@ export interface BlockInfo {
   expiresAt?: number; // For server-side temp blocks
 }
 
+// History response with pagination
+export interface HistoryResponse {
+  messages: Message[];
+  presence: string[];
+  hasMore?: boolean;
+  nextCursor?: string;
+}
+
 // WebSocket message types
 export type ClientMessage =
   | { type: 'join'; nickname: string; lastMessageId?: string }
   | { type: 'message'; id: string; text: string }
   | { type: 'typing' }
-  | { type: 'report'; messageId: string; reportedNickname: string; reason?: string };
+  | { type: 'report'; messageId: string; reportedNickname: string; reason?: string }
+  | { type: 'history'; cursor?: string };
 
 export type ServerMessage =
-  | { type: 'history'; messages: Message[]; presence: string[] }
+  | { type: 'history'; messages: Message[]; presence: string[]; hasMore?: boolean; nextCursor?: string }
   | { type: 'message'; msg: Message }
   | { type: 'presence'; nicknames: string[] }
   | { type: 'typing'; nickname: string }

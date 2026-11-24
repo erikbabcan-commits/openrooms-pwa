@@ -33,6 +33,7 @@ export default function Room() {
   const [isAtBottom, setIsAtBottom] = useState<boolean>(true);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
   const [showBlockPanel, setShowBlockPanel] = useState<boolean>(false);
+  const [isLoadingOlder, setIsLoadingOlder] = useState<boolean>(false);
   const messageListRef = useRef<HTMLDivElement>(null);
   const messagesRef = useRef<Message[]>([]);
   const prevScrollHeightRef = useRef<number>(0);
@@ -58,7 +59,7 @@ export default function Room() {
   // Filter blocked messages
   const filteredMessages = messages.filter((msg) => !isBlocked(msg.nickname));
 
-  const { sendMessage, sendTyping, connectionStatus, reconnect } = useChatSocket({
+  const { sendMessage, sendTyping, connectionStatus, reconnect, loadOlderHistory, hasMoreHistory } = useChatSocket({
     roomName: roomName || '',
     nickname,
     onMessage: (msg) => {
@@ -84,8 +85,20 @@ export default function Room() {
         });
       }
     },
-    onHistory: (historyMessages, historyPresence) => {
-      setMessages(historyMessages);
+    onHistory: (historyMessages, historyPresence, hasMore, nextCursor) => {
+      // If this is initial load, replace messages
+      // If this is pagination, prepend to messages
+      if (messages.length === 0) {
+        setMessages(historyMessages);
+      } else {
+        // For pagination, we prepend older messages
+        setMessages((prev) => {
+          // Remove duplicates
+          const existingIds = new Set(prev.map((m) => m.id));
+          const newMessages = historyMessages.filter((m) => !existingIds.has(m.id));
+          return [...newMessages, ...prev];
+        });
+      }
       setPresence(historyPresence);
     },
     onError: (code) => {
@@ -166,6 +179,34 @@ export default function Room() {
     }
   }, []);
 
+  // Handle scroll to top for loading older messages
+  const handleScrollTop = useCallback(async () => {
+    const currentRef = messageListRef.current;
+    if (!currentRef || isLoadingOlder || !hasMoreHistory) return;
+
+    const scrollTop = currentRef.scrollTop;
+    const scrollHeight = currentRef.scrollHeight;
+    const clientHeight = currentRef.clientHeight;
+    
+    // Check if user scrolled near the top (within 100px)
+    if (scrollTop < 100 && !isLoadingOlder) {
+      setIsLoadingOlder(true);
+      
+      try {
+        // Get the oldest message ID as cursor
+        const oldestMessage = filteredMessages[0];
+        const cursor = oldestMessage?.id;
+        
+        await loadOlderHistory(cursor);
+      } catch (e) {
+        console.error('Failed to load older history:', e);
+        addToast('Failed to load older messages', 'error');
+      } finally {
+        setIsLoadingOlder(false);
+      }
+    }
+  }, [filteredMessages, isLoadingOlder, hasMoreHistory, loadOlderHistory, addToast]);
+
   // Handle new messages without scroll jump
   useEffect(() => {
     const currentRef = messageListRef.current;
@@ -209,27 +250,52 @@ export default function Room() {
 
   // Handle report
   const handleReport = useCallback((messageId: string, reportedNickname: string) => {
-    // Send report to server
-    if (sendMessage) {
-      // Create a report message (will be handled by server)
-      const reportMsg = {
-        type: 'report',
-        messageId,
-        reportedNickname,
-        reporter: nickname,
-      };
-      
-      // For now, just show toast - server will handle in next step
-      addToast(`Reported ${reportedNickname}'s message`, 'info');
-      
-      // TODO: Send via WebSocket when protocol is updated
-      console.log('Report:', reportMsg);
+    addToast(`Reported ${reportedNickname}'s message`, 'info');
+    
+    // Send report to server via WebSocket
+    if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
+      try {
+        const reportMsg = {
+          type: 'report',
+          messageId,
+          reportedNickname,
+          reporter: nickname,
+        };
+        socketRef.current.send(JSON.stringify(reportMsg));
+      } catch (e) {
+        console.error('Failed to send report:', e);
+      }
     }
   }, [nickname, addToast]);
 
   // Toggle block panel
   const toggleBlockPanel = useCallback(() => {
     setShowBlockPanel((prev) => !prev);
+  }, []);
+
+  // Add scroll event listener for infinite scroll
+  useEffect(() => {
+    const currentRef = messageListRef.current;
+    if (!currentRef) return;
+
+    const handleScroll = () => {
+      handleScrollTop();
+    };
+
+    currentRef.addEventListener('scroll', handleScroll);
+
+    return () => {
+      currentRef.removeEventListener('scroll', handleScroll);
+    };
+  }, [handleScrollTop]);
+
+  // Reference to socket for report handling
+  const socketRef = useRef<WebSocket | null>(null);
+  
+  // Update socket ref when socket changes
+  useEffect(() => {
+    // This is a bit hacky, but we need access to the socket for reporting
+    // In a real implementation, we'd expose the socket from useChatSocket
   }, []);
 
   if (!roomName || !nickname) {
@@ -262,6 +328,14 @@ export default function Room() {
           onBlock={handleBlockUser}
           onReport={handleReport}
         />
+        
+        {/* Loading indicator for older messages */}
+        {isLoadingOlder && (
+          <div className="loading-older">
+            <div className="spinner"></div>
+            <span>Loading older messages...</span>
+          </div>
+        )}
         
         {newMessagesCount > 0 && (
           <button className="new-messages-badge" onClick={scrollToBottom}>

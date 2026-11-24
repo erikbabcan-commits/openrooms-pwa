@@ -5,6 +5,7 @@ import { Room } from './Room';
 
 export interface Env {
   ROOM: DurableObjectNamespace;
+  DB: D1Database;
 }
 
 export default {
@@ -21,7 +22,7 @@ export default {
 
       // Validate room name (alphanumeric, underscores, hyphens, 1-50 chars)
       if (!/^[a-zA-Z0-9_-]{1,50}$/.test(roomName)) {
-        return new Response('Invalid room name', { status: 400 });
+        return new Response('Invalid room name', { status: 404 });
       }
 
       // Get or create Durable Object for this room
@@ -29,7 +30,8 @@ export default {
       const roomStub = env.ROOM.get(roomId);
 
       // Forward WebSocket request to Durable Object
-      return roomStub.fetch(request);
+      // The Room class will have access to env.DB through its constructor
+      return roomStub.fetch(request, { DB: env.DB });
     }
 
     // Handle HTTP requests (for health checks, etc.)

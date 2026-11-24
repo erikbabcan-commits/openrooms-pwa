@@ -8,7 +8,7 @@ interface UseChatSocketProps {
   onMessage?: (msg: Message) => void;
   onPresence?: (nicknames: string[]) => void;
   onTyping?: (nickname: string) => void;
-  onHistory?: (messages: Message[], presence: string[]) => void;
+  onHistory?: (messages: Message[], presence: string[], hasMore?: boolean, nextCursor?: string) => void;
   onError?: (code: string) => void;
 }
 
@@ -17,6 +17,8 @@ interface UseChatSocketReturn {
   sendTyping: () => void;
   connectionStatus: ConnectionStatus;
   reconnect: () => void;
+  loadOlderHistory: (cursor?: string) => Promise<void>;
+  hasMoreHistory: boolean;
 }
 
 const RECONNECT_DELAYS = [1000, 2000, 4000, 8000, 15000]; // ms
@@ -31,11 +33,13 @@ export function useChatSocket({
   onError,
 }: UseChatSocketProps): UseChatSocketReturn {
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('OFFLINE');
+  const [hasMoreHistory, setHasMoreHistory] = useState<boolean>(false);
   const socketRef = useRef<WebSocket | null>(null);
   const reconnectAttemptRef = useRef<number>(0);
   const reconnectTimeoutRef = useRef<number | null>(null);
   const lastMessageIdRef = useRef<string | undefined>(undefined);
   const isMountedRef = useRef<boolean>(true);
+  const nextCursorRef = useRef<string | undefined>(undefined);
 
   const getWsUrl = useCallback(() => {
     // For Cloudflare Workers, use the worker URL
@@ -57,7 +61,7 @@ export function useChatSocket({
         setConnectionStatus('ONLINE');
         reconnectAttemptRef.current = 0;
         
-        // Send join message
+        // Send join message with lastMessageId for initial history
         const joinMsg: ClientMessage = {
           type: 'join',
           nickname,
@@ -75,10 +79,14 @@ export function useChatSocket({
           
           switch (data.type) {
             case 'history':
-              onHistory?.(data.messages, data.presence);
+              onHistory?.(data.messages || [], data.presence || [], data.hasMore, data.nextCursor);
+              setHasMoreHistory(data.hasMore === true);
+              if (data.nextCursor) {
+                nextCursorRef.current = data.nextCursor;
+              }
               // Update last message ID for reconnection
-              if (data.messages.length > 0) {
-                lastMessageIdRef.current = data.messages[data.messages.length - 1].id;
+              if (data.messages && data.messages.length > 0) {
+                lastMessageIdRef.current = data.messages[0].id;
               }
               break;
             case 'message':
@@ -86,13 +94,13 @@ export function useChatSocket({
               lastMessageIdRef.current = data.msg.id;
               break;
             case 'presence':
-              onPresence?.(data.nicknames);
+              onPresence?.(data.nicknames || []);
               break;
             case 'typing':
-              onTyping?.(data.nickname);
+              onTyping?.(data.nickname || '');
               break;
             case 'error':
-              onError?.(data.code);
+              onError?.(data.code || 'UNKNOWN_ERROR');
               break;
           }
         } catch (e) {
@@ -188,6 +196,49 @@ export function useChatSocket({
     }
   }, []);
 
+  const loadOlderHistory = useCallback(async (cursor?: string) => {
+    if (!socketRef.current || socketRef.current.readyState !== WebSocket.OPEN) {
+      return;
+    }
+
+    return new Promise<void>((resolve, reject) => {
+      const historyMsg: ClientMessage = {
+        type: 'history',
+        cursor: cursor || nextCursorRef.current,
+      };
+
+      // Set up a one-time handler for the history response
+      const originalOnMessage = socketRef.current.onmessage;
+      socketRef.current.onmessage = (event) => {
+        try {
+          const data: ServerMessage = JSON.parse(event.data);
+          if (data.type === 'history') {
+            onHistory?.(data.messages || [], data.presence || [], data.hasMore, data.nextCursor);
+            setHasMoreHistory(data.hasMore === true);
+            if (data.nextCursor) {
+              nextCursorRef.current = data.nextCursor;
+            }
+            socketRef.current!.onmessage = originalOnMessage;
+            resolve();
+          } else {
+            // Handle other messages normally
+            originalOnMessage?.(event);
+          }
+        } catch (e) {
+          socketRef.current!.onmessage = originalOnMessage;
+          reject(e);
+        }
+      };
+
+      try {
+        socketRef.current.send(JSON.stringify(historyMsg));
+      } catch (e) {
+        socketRef.current.onmessage = originalOnMessage;
+        reject(e);
+      }
+    });
+  }, [onHistory]);
+
   const reconnect = useCallback(() => {
     if (reconnectTimeoutRef.current) {
       clearTimeout(reconnectTimeoutRef.current);
@@ -244,5 +295,7 @@ export function useChatSocket({
     sendTyping,
     connectionStatus,
     reconnect,
+    loadOlderHistory,
+    hasMoreHistory,
   };
 }
